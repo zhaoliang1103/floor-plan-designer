@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>户型图设计器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei','Segoe UI',sans-serif;background:#f5f7fa;color:#333;overflow:hidden;height:100vh}
+.header{display:flex;align-items:center;justify-content:space-between;padding:10px 24px;background:#fff;border-bottom:1px solid #e0e0e0;height:52px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.header h1{font-size:17px;font-weight:700;letter-spacing:1px;color:#1a1a1a}
+.header h1 span{color:#00b894}
+.header-actions{display:flex;align-items:center;gap:8px}
+.btn{padding:7px 16px;border:1px solid #d0d0d0;border-radius:6px;background:#fff;color:#333;font-size:13px;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn:hover{border-color:#00b894;color:#00b894}
+.btn-primary{background:#00b894;color:#fff;border-color:#00b894;font-weight:600}
+.btn-primary:hover{background:#00a884}
+
+.main-layout{display:flex;height:calc(100vh - 52px)}
+.left-panel{width:280px;min-width:280px;background:#fff;border-right:1px solid #e0e0e0;overflow-y:auto;padding:14px}
+.panel-section{margin-bottom:16px}
+.panel-title{font-size:12px;font-weight:700;color:#999;margin-bottom:8px;letter-spacing:1px}
+
+.input-group{display:flex;gap:8px;margin-bottom:8px}
+.input-item{flex:1}
+.input-item label{display:block;font-size:12px;color:#666;margin-bottom:3px}
+.input-item input{width:100%;padding:7px 8px;background:#fff;border:1px solid #d0d0d0;border-radius:5px;color:#333;font-size:13px;font-family:inherit;outline:none;transition:border-color .2s}
+.input-item input:focus{border-color:#00b894}
+
+.floors-control{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.floors-control button{width:30px;height:30px;border-radius:5px;border:1px solid #d0d0d0;background:#fff;color:#333;font-size:15px;cursor:pointer}
+.floors-control button:hover{border-color:#00b894;color:#00b894}
+.floors-control span{font-size:17px;font-weight:700;min-width:28px;text-align:center}
+
+.room-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.room-tag{padding:4px 10px;border-radius:10px;font-size:11px;cursor:pointer;border:1px solid #d0d0d0;background:#f9f9f9;transition:all .2s;user-select:none;color:#666}
+.room-tag:hover{border-color:#00b894;color:#00b894}
+.room-tag.active{border-color:#00b894;background:#00b894;color:#fff;font-weight:600}
+
+.floor-tabs{display:flex;gap:5px;margin-bottom:10px}
+.floor-tab{flex:1;padding:7px;text-align:center;border-radius:5px;border:1px solid #d0d0d0;background:#f9f9f9;color:#666;font-size:12px;cursor:pointer;transition:all .2s}
+.floor-tab:hover{border-color:#00b894;color:#00b894}
+.floor-tab.active{border-color:#00b894;background:#00b894;color:#fff;font-weight:600}
+
+.room-list-item{display:flex;align-items:center;justify-content:space-between;padding:7px 9px;border-radius:5px;background:#f9f9f9;margin-bottom:5px;border:1px solid transparent;transition:all .2s}
+.room-list-item:hover{border-color:#d0d0d0}
+.room-list-item.selected{border-color:#00b894;background:rgba(0,184,148,0.06)}
+.room-list-item .color-dot{width:9px;height:9px;border-radius:50%;margin-right:7px;flex-shrink:0}
+.room-list-item .room-info{display:flex;align-items:center;flex:1;min-width:0}
+.room-list-item .room-name{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room-list-item .room-size{font-size:10px;color:#999;margin-left:6px;flex-shrink:0}
+.room-list-item .room-actions{display:flex;gap:3px;margin-left:6px}
+.room-list-item .room-actions button{width:22px;height:22px;border-radius:3px;border:none;background:#eee;color:#999;cursor:pointer;font-size:11px}
+.room-list-item .room-actions button:hover{color:#00b894;background:#e0e0e0}
+
+.canvas-area{flex:1;display:flex;flex-direction:column;position:relative;overflow:hidden;background:#f0f2f5}
+.view-tabs{display:flex;padding:8px 18px 0;gap:5px}
+.view-tab{padding:7px 18px;border-radius:7px 7px 0 0;border:1px solid #d0d0d0;border-bottom:none;background:#fff;color:#999;font-size:12px;cursor:pointer;transition:all .2s}
+.view-tab.active{background:#f0f2f5;color:#00b894;font-weight:600}
+.canvas-wrapper{flex:1;position:relative;background:#fff;border:1px solid #d0d0d0;margin:0 18px 18px;border-radius:0 7px 7px 7px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+#canvas2d{width:100%;height:100%;display:block;cursor:default}
+#view3d{width:100%;height:100%;position:absolute;top:0;left:0;display:none}
+.tooltip{position:absolute;padding:5px 10px;background:#333;border-radius:5px;font-size:11px;pointer-events:none;display:none;z-index:100;white-space:nowrap;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+.scale-bar{position:absolute;bottom:14px;left:20px;display:flex;align-items:center;gap:5px;font-size:10px;color:#999}
+.scale-bar .bar{width:50px;height:2px;background:#00b894;position:relative}
+.scale-bar .bar::before,.scale-bar .bar::after{content:'';position:absolute;width:2px;height:7px;background:#00b894;top:-2.5px}
+.scale-bar .bar::before{left:0}
+.scale-bar .bar::after{right:0}
+.hint{position:absolute;top:14px;right:20px;font-size:10px;color:#999;background:rgba(255,255,255,0.9);padding:4px 9px;border-radius:4px;border:1px solid #e0e0e0}
+.hint3d{position:absolute;bottom:14px;right:20px;font-size:10px;color:#999;background:rgba(255,255,255,0.9);padding:4px 9px;border-radius:4px;border:1px solid #e0e0e0;display:none}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:10px;padding:20px;min-width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.15)}
+.modal h2{font-size:16px;margin-bottom:14px;color:#333}
+.modal textarea{width:100%;height:110px;background:#f9f9f9;border:1px solid #d0d0d0;border-radius:5px;color:#333;padding:8px;font-family:monospace;font-size:11px;resize:vertical;margin-bottom:10px;outline:none}
+#loading-mask{position:fixed;top:0;left:0;right:0;bottom:0;background:#f5f7fa;z-index:3000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;color:#999;font-size:14px}
+#loading-mask .spinner{width:36px;height:36px;border:3px solid #e0e0e0;border-top-color:#00b894;border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:#f5f7fa}
+::-webkit-scrollbar-thumb{background:#d0d0d0;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#999}
+
+/* 登录页 */
+#loginPage{position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#e8f5e9 0%,#f5f7fa 50%,#e3f2fd 100%);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+#loginPage.hidden{display:none}
+.login-card{background:#fff;border-radius:16px;padding:36px 32px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.1);position:relative}
+.login-badge{display:inline-block;padding:4px 12px;background:rgba(0,184,148,0.1);border:1px solid rgba(0,184,148,0.3);border-radius:20px;font-size:11px;color:#00b894;margin-bottom:20px;letter-spacing:1px}
+.login-card h2{font-size:24px;font-weight:700;margin-bottom:8px;color:#1a1a1a}
+.login-card .subtitle{font-size:13px;color:#999;margin-bottom:28px;line-height:1.5}
+.login-card .form-group{margin-bottom:16px}
+.login-card .form-label{display:block;font-size:12px;color:#666;margin-bottom:6px}
+.login-card .form-input{width:100%;padding:12px 14px;background:#f9f9f9;border:1px solid #d0d0d0;border-radius:8px;color:#333;font-size:15px;font-family:inherit;outline:none;transition:border-color .2s}
+.login-card .form-input:focus{border-color:#00b894}
+.login-card .form-input::placeholder{color:#ccc}
+.login-card select.form-input{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;cursor:pointer}
+.login-card .phone-row{display:flex;gap:8px;align-items:center}
+.login-card .phone-row .form-input{flex:1}
+.login-card .phone-tip{font-size:11px;color:#ccc;margin-top:6px;display:flex;align-items:center;gap:4px}
+.login-card .submit-btn{width:100%;padding:14px;background:#00b894;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;transition:all .2s;margin-top:20px;font-family:inherit}
+.login-card .submit-btn:hover{background:#00a884;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,184,148,0.3)}
+.login-card .submit-btn:active{transform:translateY(0)}
+.login-card .divider{height:1px;background:#e0e0e0;margin:20px 0;position:relative}
+.login-card .divider span{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:0 12px;font-size:11px;color:#ccc}
+.login-features{display:flex;flex-direction:column;gap:8px;margin-bottom:4px}
+.login-feature{display:flex;align-items:center;gap:8px;font-size:12px;color:#999}
+.login-feature .feature-icon{width:22px;height:22px;background:rgba(0,184,148,0.1);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.login-card .footer-note{font-size:11px;color:#ccc;text-align:center;margin-top:16px;line-height:1.5}
+.login-preview{position:absolute;top:-20px;right:-20px;opacity:0.06;pointer-events:none}
+.login-card .province-group{display:flex;gap:8px}
+.login-card .province-group .input-item{width:50%}
+</style>
+</head>
+<body>
+
+<!-- 登录页 -->
+<div id="loginPage">
+  <div class="login-card">
+    <div class="login-badge">◆ 免费户型设计工具</div>
+    <h2>设计你的梦想之家</h2>
+    <p class="subtitle">输入尺寸、选择房间，快速生成户型图<br>完成后可导出发送给施工队报价</p>
+
+    <div class="form-group">
+      <div class="form-label">手机号（用于接收设计方案）</div>
+      <div class="phone-row">
+        <input class="form-input" type="tel" id="phoneInput" placeholder="请输入手机号码" maxlength="11">
+      </div>
+      <div class="phone-tip">
+        🔒 您的信息仅用于联系沟通，不会泄露给第三方
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">所在地区</div>
+      <div class="province-group">
+        <div class="input-item">
+          <select class="form-input" id="provinceSelect" onchange="onProvinceChange()">
+            <option value="">选择省份</option>
+          </select>
+        </div>
+        <div class="input-item">
+          <select class="form-input" id="citySelect">
+            <option value="">选择城市</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">所在乡镇/街道（选填）</div>
+      <input class="form-input" type="text" id="townInput" placeholder="如：XX镇 XX村" maxlength="30">
+    </div>
+
+    <button class="submit-btn" id="submitBtn" onclick="doLogin()">⚡ 开始设计</button>
+
+    <div class="login-features">
+      <div class="login-feature"><span class="feature-icon">✅</span> 免费使用，不限次数</div>
+      <div class="login-feature"><span class="feature-icon">📐</span> 支持多楼层、多种房间类型</div>
+      <div class="login-feature"><span class="feature-icon">🎨</span> 2D平面图 + 3D预览</div>
+      <div class="login-feature"><span class="feature-icon">🪑</span> 添加家具，还原真实布局</div>
+    </div>
+
+    <p class="footer-note">点击"开始设计"即表示同意<br>我们通过手机号与您联系确认方案</p>
+  </div>
+</div>
+
+<!-- 加载遮罩 -->
+<div id="loading-mask" style="display:none">
+  <div class="spinner"></div>
+  <div id="loading-text">正在加载三维引擎...</div>
+</div>
+
+<!-- 主界面 -->
+<div class="header" id="appHeader" style="display:none">
+  <h1><span>◆</span> 户型图设计器</h1>
+  <div class="header-actions">
+    <span id="userBadge" style="font-size:11px;color:#999;padding:4px 10px;background:#f9f9f9;border-radius:12px;border:1px solid #e0e0e0"></span>
+    <button class="btn" onclick="resetDesign()">重置</button>
+    <button class="btn" onclick="exportImage()">导出图片</button>
+    <button class="btn" onclick="exportJSON()">导出数据</button>
+    <button class="btn btn-primary" onclick="generateLayout()">⚡ 一键生成</button>
+  </div>
+</div>
+
+<div class="main-layout" id="appMain" style="display:none">
+  <!-- 左侧面板 -->
+  <div class="left-panel">
+    <div class="panel-section">
+      <div class="panel-title">🏠 建筑参数</div>
+      <div class="input-group">
+        <div class="input-item"><label>开间(米)</label><input type="number" id="widthInput" min="4" max="30" step="0.5" value="12"></div>
+        <div class="input-item"><label>进深(米)</label><input type="number" id="lengthInput" min="4" max="30" step="0.5" value="10"></div>
+      </div>
+      <div class="input-group">
+        <div class="input-item"><label>层高(米)</label><input type="number" id="heightInput" min="2.8" max="5" step="0.1" value="3.3"></div>
+      </div>
+      <div class="floors-control">
+        <label>楼层</label>
+        <button onclick="changeFloors(-1)">−</button>
+        <span id="floorsCount">2</span>
+        <button onclick="changeFloors(1)">+</button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">🛏️ 房间配置（当前楼层）</div>
+      <div id="roomTags" class="room-tags"></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">🏢 楼层</div>
+      <div id="floorTabs" class="floor-tabs"></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">📋 当前楼层房间 <span id="selectedRoomHint" style="font-size:10px;color:#00b894;font-weight:400;display:none">（已选中）</span></div>
+      <div id="roomList"></div>
+    </div>
+
+    <div class="panel-section" id="furnitureSection" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="panel-title" style="margin:0">🪑 家具配置</div>
+        <button onclick="deselectRoom()" style="padding:2px 8px;font-size:10px;background:#f9f9f9;border:1px solid #d0d0d0;color:#999;border-radius:4px;cursor:pointer">取消选择</button>
+      </div>
+      <div id="furnitureList"></div>
+    </div>
+  </div>
+
+  <!-- 右侧画布 -->
+  <div class="canvas-area">
+    <div class="view-tabs">
+      <div class="view-tab active" onclick="switchView('2d')">📍 平面视图</div>
+      <div class="view-tab" onclick="switchView('3d')">🎨 三维预览</div>
+    </div>
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <canvas id="canvas2d"></canvas>
+      <div id="view3d"></div>
+      <div class="scale-bar"><div class="bar"></div><span id="scaleText">1米</span></div>
+      <div class="hint" id="hint2d">拖拽移动房间 · 拖边缘调大小 · 拖门/家具调位置 · 滚轮缩放 · 右键平移</div>
+      <div class="hint3d" id="hint3d">左键旋转 · 滚轮缩放 · 右键平移</div>
+    </div>
+  </div>
+</div>
+
+<!-- 导出弹窗 -->
+<div class="modal-overlay" id="exportModal">
+ <div class="modal">
+  <h2>📧 导出户型数据</h2>
+  <p style="font-size:11px;color:#999;margin-bottom:10px">以下数据可发送给施工队进行报价参考</p>
+  <textarea id="exportData" readonly></textarea>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+   <button class="btn" onclick="closeModal()">关闭</button>
+   <button class="btn btn-primary" onclick="copyExport()">📋 复制</button>
+  </div>
+ </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+/* ===== 省市数据 ===== */
+var PROVINCES = [
+  {name:"北京", cities:["北京市"]},
+  {name:"天津", cities:["天津市"]},
+  {name:"河北", cities:["石家庄市","唐山市","秦皇岛市","邯郸市","邢台市","保定市","张家口市","承德市","沧州市","廊坊市","衡水市","定州市","辛集市","雄安新区"]},
+  {name:"山西", cities:["太原市","大同市","阳泉市","长治市","晋城市","朔州市","晋中市","运城市","忻州市","临汾市","吕梁市"]},
+  {name:"内蒙古", cities:["呼和浩特市","包头市","乌海市","赤峰市","通辽市","鄂尔多斯市","呼伦贝尔市","巴彦淖尔市","乌兰察布市"]},
+  {name:"辽宁", cities:["沈阳市","大连市","鞍山市","抚顺市","本溪市","丹东市","锦州市","营口市","阜新市","辽阳市","盘锦市","铁岭市","朝阳市","葫芦岛市"]},
+  {name:"吉林", cities:["长春市","吉林市","四平市","辽源市","通化市","白山市","松原市","白城市","延边州"]},
+  {name:"黑龙江", cities:["哈尔滨市","齐齐哈尔市","鸡西市","鹤岗市","双鸭山市","大庆市","伊春市","佳木斯市","七台河市","牡丹江市","黑河市","绥化市"]},
+  {name:"上海", cities:["上海市"]},
+  {name:"江苏", cities:["南京市","无锡市","徐州市","常州市","苏州市","南通市","连云港市","淮安市","盐城市","扬州市","镇江市","泰州市","宿迁市"]},
+  {name:"浙江", cities:["杭州市","宁波市","温州市","嘉兴市","湖州市","绍兴市","金华市","衢州市","舟山市","台州市","丽水市"]},
+  {name:"安徽", cities:["合肥市","芜湖市","蚌埠市","淮南市","马鞍山市","淮北市","铜陵市","安庆市","黄山市","滁州市","阜阳市","宿州市","六安市","亳州市","池州市","宣城市"]},
+  {name:"福建", cities:["福州市","厦门市","莆田市","三明市","泉州市","漳州市","南平市","龙岩市","宁德市"]},
+  {name:"江西", cities:["南昌市","景德镇市","萍乡市","九江市","新余市","鹰潭市","赣州市","吉安市","宜春市","抚州市","上饶市"]},
+  {name:"山东", cities:["济南市","青岛市","淄博市","枣庄市","东营市","烟台市","潍坊市","济宁市","泰安市","威海市","日照市","临沂市","德州市","聊城市","滨州市","菏泽市","莱芜市"]},
+  {name:"河南", cities:["郑州市","开封市","洛阳市","平顶山市","安阳市","鹤壁市","新乡市","焦作市","濮阳市","许昌市","漯河市","三门峡市","南阳市","商丘市","信阳市","周口市","驻马店市","济源市"]},
+  {name:"湖北", cities:["武汉市","黄石市","十堰市","宜昌市","襄阳市","鄂州市","荆门市","孝感市","荆州市","黄冈市","咸宁市","随州市","恩施州","仙桃市","潜江市","天门市","神农架林区"]},
+  {name:"湖南", cities:["长沙市","株洲市","湘潭市","衡阳市","邵阳市","岳阳市","常德市","张家界市","益阳市","郴州市","永州市","怀化市","娄底市","湘西州"]},
+  {name:"广东", cities:["广州市","韶关市","深圳市","珠海市","汕头市","佛山市","江门市","湛江市","茂名市","肇庆市","惠州市","梅州市","汕尾市","河源市","阳江市","清远市","东莞市","中山市","潮州市","揭阳市","云浮市"]},
+  {name:"广西", cities:["南宁市","柳州市","桂林市","梧州市","北海市","防城港市","钦州市","贵港市","玉林市","百色市","贺州市","河池市","来宾市","崇左市"]},
+  {name:"海南", cities:["海口市","三亚市","三沙市","儋州市","五指山市","琼海市","文昌市","万宁市","东方市"]},
+  {name:"重庆", cities:["重庆市"]},
+  {name:"四川", cities:["成都市","自贡市","攀枝花市","泸州市","德阳市","绵阳市","广元市","遂宁市","内江市","乐山市","南充市","眉山市","宜宾市","广安市","达州市","雅安市","巴中市","资阳市","阿坝州","甘孜州","凉山州"]},
+  {name:"贵州", cities:["贵阳市","六盘水市","遵义市","安顺市","毕节市","铜仁市","黔西南州","黔东南州","黔南州"]},
+  {name:"云南", cities:["昆明市","曲靖市","玉溪市","保山市","昭通市","丽江市","普洱市","临沧市","楚雄州","红河州","文山州","西双版纳州","大理州","德宏州","怒江州","迪庆州"]},
+  {name:"西藏", cities:["拉萨市","日喀则市","昌都市","林芝市","山南市","那曲市","阿里地区"]},
+  {name:"陕西", cities:["西安市","铜川市","宝鸡市","咸阳市","渭南市","延安市","汉中市","榆林市","安康市","商洛市"]},
+  {name:"甘肃", cities:["兰州市","嘉峪关市","金昌市","白银市","天水市","武威市","张掖市","平凉市","酒泉市","庆阳市","定西市","陇南市","临夏州","甘南州"]},
+  {name:"青海", cities:["西宁市","海东市","海北州","黄南州","海南州","果洛州","玉树州","海西州"]},
+  {name:"宁夏", cities:["银川市","石嘴山市","吴忠市","固原市","中卫市"]},
+  {name:"新疆", cities:["乌鲁木齐市","克拉玛依市","吐鲁番市","哈密市","昌吉州","博尔塔拉州","巴音郭楞州","阿克苏地区","克孜勒苏州","喀什地区","和田地区","伊犁州","塔城地区","阿勒泰地区","石河子市","阿拉尔市","图木舒克市","五家渠市","北屯市","铁门关市","双河市","可克达拉市","昆玉市","胡杨河市"]},
+  {name:"台湾", cities:["台北市","新北市","桃园市","台中市","台南市","高雄市"]},
+  {name:"香港", cities:["香港"]},
+  {name:"澳门", cities:["澳门"]},
+];
+
+function initProvinceCity(){
+  var ps = document.getElementById("provinceSelect");
+  PROVINCES.forEach(function(p, i){
+    var opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = p.name;
+    ps.appendChild(opt);
+  });
+}
+
+function onProvinceChange(){
+  var ps = document.getElementById("provinceSelect");
+  var cs = document.getElementById("citySelect");
+  cs.innerHTML = '<option value="">选择城市</option>';
+  var idx = parseInt(ps.value);
+  if(isNaN(idx)) return;
+  PROVINCES[idx].cities.forEach(function(c){
+    var opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = c;
+    cs.appendChild(opt);
+  });
+}
+
+/* ===== 登录逻辑 ===== */
+function isValidPhone(v){
+  return /^1[3-9]\d{9}$/.test(v);
+}
+
+function doLogin(){
+  var phone = document.getElementById("phoneInput").value.trim();
+  var provinceIdx = parseInt(document.getElementById("provinceSelect").value);
+  var city = document.getElementById("citySelect").value;
+  var town = document.getElementById("townInput").value.trim();
+  var province = (isNaN(provinceIdx) ? "" : PROVINCES[provinceIdx].name);
+
+  if(!isValidPhone(phone)){
+    alert("请输入正确的手机号码（11位）");
+    return;
+  }
+  if(!province || !city){
+    alert("请选择省份和城市");
+    return;
+  }
+
+  var userInfo = {
+    phone: phone,
+    province: province,
+    city: city,
+    town: town,
+    loginTime: new Date().toISOString()
+  };
+  localStorage.setItem("floorplan_user", JSON.stringify(userInfo));
+  showApp();
+}
+
+function logout(){
+  localStorage.removeItem("floorplan_user");
+  location.reload();
+}
+
+function showApp(){
+  document.getElementById("loginPage").classList.add("hidden");
+  document.getElementById("appHeader").style.display = "flex";
+  document.getElementById("appMain").style.display = "flex";
+  document.getElementById("loading-mask").style.display = "flex";
+
+  var user = JSON.parse(localStorage.getItem("floorplan_user") || "{}");
+  var maskedPhone = (user.phone || "").replace(/(\d{3})\d{4}(\d{4})/, "$1****$2");
+  document.getElementById("userBadge").textContent = "📱 " + maskedPhone + " · " + (user.city || "");
+
+  // 插入退出按钮
+  var hdr = document.getElementById("appHeader");
+  var actions = hdr.querySelector(".header-actions");
+  if(!actions.querySelector(".logout-btn")){
+    var logoutBtn = document.createElement("button");
+    logoutBtn.className = "btn logout-btn";
+    logoutBtn.style.borderColor = "#d0d0d0";
+    logoutBtn.style.color = "#999";
+    logoutBtn.textContent = "退出";
+    logoutBtn.onclick = logout;
+    actions.insertBefore(logoutBtn, actions.firstChild);
+  }
+
+  loadThreeJS();
+}
+
+/* ===== Three.js 加载 ===== */
+function loadThreeJS(){
+  var urls = [
+    "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js",
+    "https://unpkg.com/three@0.128.0/build/three.min.js",
+    "https://unpkg.zhimg.com/three@0.128.0/build/three.min.js"
+  ];
+  var idx = 0;
+  function loadNext(){
+    if(idx >= urls.length){
+      document.getElementById("loading-text").textContent = "三维引擎加载失败，请检查网络后刷新";
+      return;
+    }
+    var s = document.createElement("script");
+    s.src = urls[idx];
+    s.onload = function(){
+      console.log("Three.js 加载成功:", urls[idx]);
+      document.getElementById("loading-text").textContent = "正在启动...";
+      var a = document.createElement("script");
+      a.src = "app.js";
+      a.onload = function(){
+        document.getElementById("loading-mask").style.display = "none";
+        if(typeof init === "function") init();
+      };
+      a.onerror = function(){
+        document.getElementById("loading-text").textContent = "应用脚本加载失败";
+      };
+      document.head.appendChild(a);
+    };
+    s.onerror = function(){
+      idx++;
+      loadNext();
+    };
+    document.head.appendChild(s);
+  }
+  loadNext();
+}
+
+/* ===== 导出拦截 ===== */
+var _origExportJSON = null;
+function exportJSON(){
+  if(typeof _origExportJSON === "function"){
+    _origExportJSON();
+  } else {
+    // 兼容：如果 app.js 还没加载完
+    var user = JSON.parse(localStorage.getItem("floorplan_user") || "null");
+    var data = {
+      width: state ? state.width : 12,
+      length: state ? state.length : 10,
+      floors: state ? state.floors : 1,
+      _user: user,
+      _submitTime: new Date().toISOString()
+    };
+    document.getElementById("exportData").value = JSON.stringify(data, null, 2);
+    document.getElementById("exportModal").classList.add("show");
+  }
+
+  // 通知企业微信
+  try {
+    var u = JSON.parse(localStorage.getItem("floorplan_user") || "{}");
+    var roomSummary = state ? state.floorData.map(function(floor){
+      return floor.rooms.map(function(r){ return r.name; }).join("、");
+    }) : [];
+    fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: u.phone || null,
+        province: u.province || null,
+        city: u.city || null,
+        town: u.town || null,
+        floorCount: state ? state.floors : 1,
+        roomSummary: roomSummary
+      })
+    }).catch(function(){});
+  } catch(e){}
+}
+
+function closeModal(){ document.getElementById("exportModal").classList.remove("show"); }
+function copyExport(){ document.getElementById("exportData").select(); document.execCommand("copy"); closeModal(); }
+function resetDesign(){ if(typeof deselectRoom === "function") deselectRoom(); if(typeof generateLayout === "function") generateLayout(); }
+
+/* ===== 启动检查 ===== */
+(function(){
+  initProvinceCity();
+  var user = localStorage.getItem("floorplan_user");
+  if(user){
+    try {
+      var u = JSON.parse(user);
+      if(u.phone && isValidPhone(u.phone)){
+        showApp();
+        return;
+      }
+    } catch(e){}
+  }
+  document.getElementById("loginPage").classList.remove("hidden");
+})();
+</script>
+</body>
+</html>
