@@ -475,7 +475,22 @@ function exportJSON(){
 
 function closeModal(){ document.getElementById("exportModal").classList.remove("show"); }
 function copyExport(){ document.getElementById("exportData").select(); document.execCommand("copy"); closeModal(); }
-function openSurveyModal(){ document.getElementById("surveyModal").classList.add("show"); }
+function openSurveyModal(){
+  var user = JSON.parse(localStorage.getItem("floorplan_user") || "{}");
+  var phone = user.phone || "";
+  var location = "";
+  if(user.province && user.city){
+    location = user.province + " " + user.city;
+    if(user.town) location += " " + user.town;
+  }
+  var surveyUrl = "https://wj.qq.com/s2/26774133/4072/";
+  if(phone){
+    surveyUrl += "?s1=" + encodeURIComponent(phone);
+    if(location) surveyUrl += "&s2=" + encodeURIComponent(location);
+  }
+  document.getElementById("surveyIframe").src = surveyUrl;
+  document.getElementById("surveyModal").classList.add("show");
+}
 function closeSurveyModal(){ document.getElementById("surveyModal").classList.remove("show"); }
 function resetDesign(){ if(typeof deselectRoom === "function") deselectRoom(); if(typeof generateLayout === "function") generateLayout(); }
 
