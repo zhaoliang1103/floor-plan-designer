@@ -130,6 +130,7 @@ var state = {
 };
 var dragState = null, resizeState = null, doorDragState = null, mainDoorDragState = null;
 var furnDragState = null;
+var canvasSizeEditor = null; // 画布上的悬浮尺寸编辑框
 var isPanning = false, panStartX = 0, panStartY = 0;
 var T = { scene:null, camera:null, renderer:null, animId:null, orbit:null };
 
@@ -384,8 +385,66 @@ function on2dMove(e){
   else { canvas.style.cursor="default"; if(tip)tip.style.display="none"; }
 }
 
-function on2dUp(){ dragState=null; resizeState=null; doorDragState=null; mainDoorDragState=null; furnDragState=null; isPanning=false; canvas.style.cursor="default"; }
-function on2dLeave(){ dragState=null; resizeState=null; doorDragState=null; mainDoorDragState=null; furnDragState=null; isPanning=false; var t=document.getElementById("tooltip"); if(t)t.style.display="none"; canvas.style.cursor="default"; }
+function on2dUp(){ dragState=null; resizeState=null; doorDragState=null; mainDoorDragState=null; furnDragState=null; isPanning=false; canvas.style.cursor="default"; hideCanvasSizeEditor(); }
+function on2dLeave(){ dragState=null; resizeState=null; doorDragState=null; mainDoorDragState=null; furnDragState=null; isPanning=false; hideCanvasSizeEditor(); var t=document.getElementById("tooltip"); if(t)t.style.display="none"; canvas.style.cursor="default"; }
+
+/* ===== 画布悬浮尺寸编辑框 ===== */
+function showCanvasSizeEditor(room){
+  hideCanvasSizeEditor();
+  if(!room) return;
+  var wrap = document.getElementById("canvasWrapper");
+  var rect = canvas.getBoundingClientRect();
+  var s = state.zoom * getBaseScale();
+  var ox = (rect.width - state.width*100*s)/2 + state.panX;
+  var oy = (rect.height - state.length*100*s)/2 + state.panY;
+  // 编辑框位置：房间下方
+  var ex = ox + (room.x + room.w/2)*s;
+  var ey = oy + (room.y + room.h + 18)*s;
+  
+  var el = document.createElement("div");
+  el.id = "canvasSizeEditor";
+  el.cssText = "";
+  el.style.cssText = "position:absolute;left:"+(ex-90)+"px;top:"+ey+"px;z-index:50;display:flex;align-items:center;gap:4px;background:#fff;border:1px solid #00b894;border-radius:6px;padding:5px 10px;box-shadow:0 3px 12px rgba(0,0,0,0.15);font-family:'Microsoft YaHei',sans-serif;";
+  el.innerHTML = '<span style=\'font-size:11px;color:#999\'>宽</span>'
+    + '<input type="number" id="cseW" style="width:56px;padding:3px 4px;border:1px solid #d0d0d0;border-radius:4px;font-size:12px;text-align:center;outline:none;color:#333;font-family:inherit" value="'+(room.w/100).toFixed(1)+'" step="0.1" min="0.5" max="30">'
+    + '<span style=\'font-size:11px;color:#999\'>×</span>'
+    + '<span style=\'font-size:11px;color:#999\'>深</span>'
+    + '<input type="number" id="cseH" style="width:56px;padding:3px 4px;border:1px solid #d0d0d0;border-radius:4px;font-size:12px;text-align:center;outline:none;color:#333;font-family:inherit" value="'+(room.h/100).toFixed(1)+'" step="0.1" min="0.5" max="30">'
+    + '<span style=\'font-size:11px;color:#aaa\'>m</span>'
+    + '<button id="cseOk" style="margin-left:4px;padding:3px 10px;background:#00b894;color:#fff;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:inherit">✓</button>';
+  wrap.appendChild(el);
+  
+  var wInput = document.getElementById("cseW");
+  var hInput = document.getElementById("cseH");
+  var okBtn = document.getElementById("cseOk");
+  
+  canvasSizeEditor = { room: room, el: el };
+  
+  function applySize(){
+    var nw = parseFloat(wInput.value); var nh = parseFloat(hInput.value);
+    if(isNaN(nw)||nw<0.5) nw=0.5; if(nw>30) nw=30;
+    if(isNaN(nh)||nh<0.5) nh=0.5; if(nh>30) nh=30;
+    room.w = Math.min(nw*100, state.width*100 - room.x);
+    room.h = Math.min(nh*100, state.length*100 - room.y);
+    render(); renderRoomList();
+  }
+  okBtn.onclick = applySize;
+  wInput.onchange = applySize;
+  hInput.onchange = applySize;
+  // 回车确认
+  wInput.onkeydown = function(e){ if(e.key==="Enter"){ hInput.focus(); e.preventDefault(); } };
+  hInput.onkeydown = function(e){ if(e.key==="Enter"){ applySize(); e.preventDefault(); } };
+  // 阻止事件冒泡到canvas
+  el.onmousedown = function(e){ e.stopPropagation(); };
+  el.onwheel = function(e){ e.stopPropagation(); };
+}
+
+function hideCanvasSizeEditor(){
+  if(canvasSizeEditor && canvasSizeEditor.el && canvasSizeEditor.el.parentNode){
+    canvasSizeEditor.el.parentNode.removeChild(canvasSizeEditor.el);
+  }
+  canvasSizeEditor = null;
+}
 function on2dWheel(e){ e.preventDefault(); state.zoom=Math.max(0.15,Math.min(6,state.zoom*(e.deltaY>0?0.92:1.08))); render(); }
 
 /* ===== 家具辅助函数 ===== */
@@ -397,12 +456,16 @@ function selectRoomForFurniture(roomId){
   document.getElementById("furnitureSection").style.display = "block";
   renderRoomList();
   renderFurniturePanel();
+  // 显示画布悬浮尺寸编辑框
+  var room = getSelectedRoom();
+  if(room) showCanvasSizeEditor(room);
 }
 
 function deselectRoom(){
   state.selectedRoomId = null;
   document.getElementById("selectedRoomHint").style.display = "none";
   document.getElementById("furnitureSection").style.display = "none";
+  hideCanvasSizeEditor();
   renderRoomList();
 }
 
@@ -653,9 +716,19 @@ function render2D(){
   for(var y=0;y<=L;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
   ctx.strokeStyle="#00d4aa"; ctx.lineWidth=5/s; ctx.strokeRect(0,0,W,L);
   ctx.fillStyle="rgba(0,212,170,0.05)"; ctx.fillRect(-2/s,-2/s,W+4/s,L+4/s);
-  ctx.fillStyle="#00d4aa"; ctx.font="bold "+(20/s)+"px sans-serif"; ctx.textAlign="center";
-  ctx.fillText(state.width+"m",W/2,-10/s);
-  ctx.save(); ctx.translate(-14/s,L/2); ctx.rotate(-Math.PI/2); ctx.fillText(state.length+"m",0,0); ctx.restore();
+  // 外围总尺寸标注（上、左）
+  ctx.fillStyle="#00b894"; ctx.font="bold "+(18/s)+"px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="bottom";
+  // 上方宽度：用背景条突出显示，避免被compass遮挡
+  var tw = ctx.measureText(state.width+"m").width + 16/s;
+  ctx.fillStyle="rgba(0,184,148,0.08)"; ctx.fillRect(W/2 - tw/2, -26/s, tw, 22/s);
+  ctx.fillStyle="#00b894"; ctx.font="bold "+(17/s)+"px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(state.width+"m",W/2,-15/s);
+  // 左侧深度
+  ctx.save(); ctx.translate(-18/s,L/2); ctx.rotate(-Math.PI/2);
+  var tl = ctx.measureText(state.length+"m").width + 16/s;
+  ctx.fillStyle="rgba(0,184,148,0.08)"; ctx.fillRect(-tl/2, -11/s, tl, 22/s);
+  ctx.fillStyle="#00b894"; ctx.font="bold "+(17/s)+"px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(state.length+"m",0,0); ctx.restore();
   drawCompass(s, W, L, true);
   var fl=state.floorData[state.currentFloor];
   if(fl){
@@ -808,21 +881,20 @@ function drawMainDoor2D(s){
 }
 
 function drawCompass(s, W, L, pushOut){
-  var compassSize = 28/s;
-  var off = pushOut ? 60 : 35;
+  var compassSize = 22/s;
+  var off = pushOut ? 50 : 42;
   ctx.save();
   ctx.font = "bold " + compassSize + "px sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillStyle = "#2a3a5a";
-  ctx.fillText("北", W/2, -off/s);
-  ctx.strokeStyle = "#2a3a5a"; ctx.lineWidth = 1.5/s;
-  ctx.beginPath(); ctx.moveTo(W/2 - 10/s, -(off-10)/s); ctx.lineTo(W/2, -(off+10)/s); ctx.lineTo(W/2 + 10/s, -(off-10)/s); ctx.stroke();
-  ctx.fillText("南", W/2, L + off/s);
-  ctx.beginPath(); ctx.moveTo(W/2 - 10/s, L + (off-10)/s); ctx.lineTo(W/2, L + (off+10)/s); ctx.lineTo(W/2 + 10/s, L + (off-10)/s); ctx.stroke();
-  ctx.fillText("东", W + off/s, L/2);
-  ctx.beginPath(); ctx.moveTo(W + (off-10)/s, L/2 - 10/s); ctx.lineTo(W + (off+10)/s, L/2); ctx.lineTo(W + (off-10)/s, L/2 + 10/s); ctx.stroke();
-  ctx.fillText("西", -off/s, L/2);
-  ctx.beginPath(); ctx.moveTo(-(off-10)/s, L/2 - 10/s); ctx.lineTo(-(off+10)/s, L/2); ctx.lineTo(-(off-10)/s, L/2 + 10/s); ctx.stroke();
+  ctx.fillStyle = "#8899aa";
+  // 北 — 放到右上角区域，远离顶部宽度标注
+  ctx.fillText("↑北", W + off/s - 8/s, -off/s + 12/s);
+  // 南
+  ctx.fillText("↓南", W + off/s - 8/s, L + off/s - 8/s);
+  // 东
+  ctx.fillText("→东", W + off/s + 6/s, L/2);
+  // 西
+  ctx.fillText("←西", -off/s - 6/s, L/2);
   ctx.restore();
 }
 
