@@ -569,8 +569,129 @@ function renderRoomTags(){
 function toggleRoom(id){
   while(state.floorRoomConfigs.length<=state.currentFloor) state.floorRoomConfigs.push(makeDefaultConfig(state.floorRoomConfigs.length));
   var cfg=state.floorRoomConfigs[state.currentFloor], idx=cfg.indexOf(id);
-  if(idx>=0)cfg.splice(idx,1); else cfg.push(id);
+  var wasActive = idx >= 0;
+  if(wasActive) cfg.splice(idx,1); else cfg.push(id);
+  // 增量更新：不重置整个布局，只处理新增/删除的房间
+  updateFloorDataIncremental(state.currentFloor, id, !wasActive);
   renderRoomTags();
+  renderRoomList();
+  render();
+}
+
+/* ===== 增量更新房间布局 ===== */
+function updateFloorDataIncremental(floorIdx, roomId, isAdding){
+  // 确保floorData存在
+  while(state.floorData.length <= floorIdx) state.floorData.push({rooms:[]});
+  var fl = state.floorData[floorIdx];
+  if(!fl.rooms) fl.rooms = [];
+  
+  if(isAdding){
+    // 添加新房间：找一个空位放置
+    var rt = findRoomType(roomId);
+    if(!rt) return;
+    var W = state.width * 100, L = state.length * 100;
+    // 计算新房间目标面积
+    var totalRatio = 0;
+    var cfg = state.floorRoomConfigs[floorIdx] || [];
+    for(var i=0; i<cfg.length; i++){
+      var t = findRoomType(cfg[i]);
+      if(t) totalRatio += t.ratio;
+    }
+    var targetArea = totalRatio > 0 ? (rt.ratio / totalRatio) * W * L : W * L * 0.1;
+    
+    // 找到所有已占用的矩形区域
+    var occupied = fl.rooms.map(function(r){ return {x:r.x, y:r.y, w:r.w, h:r.h}; });
+    
+    // 找一个合适的空位
+    var bestSpot = findEmptySpot(W, L, targetArea, occupied, rt.minArea * 10000);
+    if(bestSpot){
+      var newRoom = {
+        id: roomId + "_" + Date.now(),
+        type: roomId,
+        name: rt.name,
+        color: rt.color,
+        x: bestSpot.x,
+        y: bestSpot.y,
+        w: bestSpot.w,
+        h: bestSpot.h,
+        door: {wall:"bottom", offset:Math.max(10, bestSpot.w/2 - Math.min(45, bestSpot.w*0.15))},
+        furniture: []
+      };
+      fl.rooms.push(newRoom);
+    }
+  } else {
+    // 删除房间：从rooms数组中移除该类型的房间
+    for(var i = fl.rooms.length - 1; i >= 0; i--){
+      if(fl.rooms[i].type === roomId){
+        if(fl.rooms[i].id === state.selectedRoomId) deselectRoom();
+        fl.rooms.splice(i, 1);
+        break; // 只删除一个
+      }
+    }
+  }
+}
+
+/* ===== 找空位放置新房间 ===== */
+function findEmptySpot(W, L, targetArea, occupied, minArea){
+  // 简单策略：网格扫描找第一个足够大的空位
+  var gridSize = 50;
+  var bestSpot = null;
+  var bestFit = Infinity;
+  
+  // 计算新房间尺寸
+  var rw = Math.sqrt(targetArea * 1.2);
+  var rh = targetArea / rw;
+  rw = snap(Math.max(180, Math.min(rw, W * 0.5)));
+  rh = snap(Math.max(180, Math.min(rh, L * 0.5)));
+  
+  // 扫描所有可能位置
+  for(var y = 0; y <= L - rh; y += gridSize){
+    for(var x = 0; x <= W - rw; x += gridSize){
+      var spot = {x: snap(x), y: snap(y), w: rw, h: rh};
+      
+      // 检查是否与已占用区域重叠
+      var overlap = false;
+      for(var i = 0; i < occupied.length; i++){
+        var o = occupied[i];
+        if(!(spot.x + spot.w <= o.x || spot.x >= o.x + o.w ||
+             spot.y + spot.h <= o.y || spot.y >= o.y + o.h)){
+          overlap = true;
+          break;
+        }
+      }
+      
+      if(!overlap){
+        // 评估这个位置的好坏（优先左上角）
+        var fit = spot.x + spot.y * 2; // 权重：y方向更重要
+        if(fit < bestFit){
+          bestFit = fit;
+          bestSpot = spot;
+        }
+      }
+    }
+  }
+  
+  // 如果找不到合适位置，尝试缩小尺寸
+  if(!bestSpot && rw > 180 && rh > 180){
+    var smallerSpot = findEmptySpot(W, L, targetArea * 0.7, occupied, minArea);
+    if(smallerSpot) return smallerSpot;
+  }
+  
+  // 实在找不到，就放在已有房间旁边
+  if(!bestSpot && occupied.length > 0){
+    var lastRoom = occupied[occupied.length - 1];
+    bestSpot = {
+      x: snap(Math.min(lastRoom.x + lastRoom.w + 20, W - rw)),
+      y: snap(lastRoom.y),
+      w: rw,
+      h: rh
+    };
+    // 确保不超出边界
+    if(bestSpot.x + bestSpot.w > W) bestSpot.x = W - bestSpot.w;
+    if(bestSpot.y + bestSpot.h > L) bestSpot.y = L - bestSpot.h;
+  }
+  
+  return bestSpot;
 }
 function changeFloors(d){
   state.floors=Math.max(1,Math.min(5,state.floors+d));
@@ -629,9 +750,18 @@ function renderRoomList(){
     var dl=r.door?r.door.wall+"墙":"无门";
     html+='<div class="room-list-item'+(isSelected?' selected':'')+'" onclick="selectRoomForFurniture(\''+r.id+'\')"><div class="room-info"><div class="color-dot" style="background:'+r.color+'"></div><span class="room-name">'+r.name+'</span></div></div>';
     html+='<div style="display:flex;align-items:center;gap:4px;padding:2px 9px 4px;margin-bottom:5px;"><span style="font-size:11px;color:#999">宽:</span><input type="number" style="width:52px;padding:2px 4px;border:1px solid #d0d0d0;border-radius:3px;font-size:11px;text-align:center;outline:none;" value="'+(r.w/100).toFixed(1)+'" step="0.1" min="1" max="30" onchange="setRoomSize('+i+',\'w\',this.value)" onclick="event.stopPropagation()" onfocus="event.stopPropagation()"><span style="font-size:11px;color:#999;margin-left:4px">深:</span><input type="number" style="width:52px;padding:2px 4px;border:1px solid #d0d0d0;border-radius:3px;font-size:11px;text-align:center;outline:none;" value="'+(r.h/100).toFixed(1)+'" step="0.1" min="1" max="30" onchange="setRoomSize('+i+',\'h\',this.value)" onclick="event.stopPropagation()" onfocus="event.stopPropagation()"><span style="font-size:11px;color:#999;margin-left:6px">['+dl+']</span>'+'<span style="color:#00d4aa;font-size:10px">'+furnCount+'</span>'+'<div class="room-actions" style="margin-left:auto"><button onclick="event.stopPropagation();cycleDoor('+i+')">🚪</button><button onclick="event.stopPropagation();deleteRoom('+i+')">✕</button></div></div>';
-  }
-  el.innerHTML=html;
-}
+    // 窗户管理UI（仅选中房间显示）
+    if(isSelected && r.windows && r.windows.length > 0){
+      html += '<div style="padding:2px 9px 2px 18px;margin-bottom:2px;">';
+      for(var wi=0; wi<r.windows.length; wi++){
+        var w = r.windows[wi];
+        html += '<div style="display:flex;align-items:center;gap:4px;font-size:10px;color:#555;margin-bottom:1px;"><span>🪟 '+w.wall+'墙 '+((w.width||120)/100).toFixed(1)+'m</span><button onclick="event.stopPropagation();removeWindow('+i+','+wi+')" style="font-size:10px;padding:0 3px;color:#f44;background:none;border:1px solid #f44;border-radius:2px;">✕</button></div>';
+      }
+      html += '</div>';
+    }
+    if(isSelected){
+      html += '<div style="padding:2px 9px 4px;margin-bottom:5px;"><span style="font-size:10px;color:#888;">+窗户:</span> <button onclick="event.stopPropagation();addWindow('+i+',\'bottom\')" style="font-size:10px;padding:1px 4px;background:none;border:1px solid #4da6ff;border-radius:2px;color:#4da6ff;">下墙</button> <button onclick="event.stopPropagation();addWindow('+i+',\'top\')" style="font-size:10px;padding:1px 4px;background:none;border:1px solid #4da6ff;border-radius:2px;color:#4da6ff;">上墙</button> <button onclick="event.stopPropagation();addWindow('+i+',\'left\')" style="font-size:10px;padding:1px 4px;background:none;border:1px solid #4da6ff;border-radius:2px;color:#4da6ff;">左墙</button> <button onclick="event.stopPropagation();addWindow('+i+',\'right\')" style="font-size:10px;padding:1px 4px;background:none;border:1px solid #4da6ff;border-radius:2px;color:#4da6ff;">右墙</button></div>';
+    }
 function setRoomSize(idx, dim, val){
   var rooms = state.floorData[state.currentFloor].rooms;
   var r = rooms[idx]; if(!r) return;
@@ -650,6 +780,20 @@ function deleteRoom(i){
   var r = state.floorData[state.currentFloor].rooms[i];
   if(r.id === state.selectedRoomId) deselectRoom();
   state.floorData[state.currentFloor].rooms.splice(i,1);
+  renderRoomList(); render();
+}
+
+function addWindow(roomIdx, wall){
+  var rooms = state.floorData[state.currentFloor].rooms;
+  var r = rooms[roomIdx]; if(!r) return;
+  if(!r.windows) r.windows = [];
+  r.windows.push({wall:wall, width:120, offset:0});
+  renderRoomList(); render();
+}
+function removeWindow(roomIdx, winIdx){
+  var rooms = state.floorData[state.currentFloor].rooms;
+  var r = rooms[roomIdx]; if(!r || !r.windows) return;
+  r.windows.splice(winIdx, 1);
   renderRoomList(); render();
 }
 
@@ -674,6 +818,7 @@ function genFloor(fi){
   for(var i=0;i<rooms.length;i++){
     rooms[i].door={wall:"bottom",offset:Math.max(10,rooms[i].w/2-Math.min(45,rooms[i].w*0.15))};
     rooms[i].furniture=[]; // 初始化家具数组
+    rooms[i].windows=[];  // 初始化窗户数组
   }
   return rooms;
 }
@@ -740,6 +885,7 @@ function render2D(){
       // 选中高亮
       if(isSelected){ ctx.strokeStyle="#00d4aa"; ctx.lineWidth=3/s; ctx.strokeRect(r.x-1/s,r.y-1/s,r.w+2/s,r.h+2/s); }
       drawDoor2D(r,s);
+      drawWindow2D(r,s);
       drawFurnitureInRoom(r,s);
       ctx.fillStyle=r.color+"cc"; ctx.font="bold "+(18/s)+"px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
       ctx.fillText(r.name,r.x+r.w/2,r.y+r.h/2-9/s);
@@ -833,6 +979,49 @@ function drawDoor2D(r,s){
     ctx.setLineDash([]);
     ctx.strokeStyle="rgba(255,224,102,0.85)"; ctx.beginPath(); ctx.moveTo(r.x+r.w,dy); ctx.lineTo(r.x+r.w,dy+dw); ctx.stroke();
     ctx.fillStyle="rgba(255,224,102,0.9)"; ctx.beginPath(); ctx.arc(r.x+r.w,dy,3/s,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawWindow2D(r, s){
+  if(!r.windows) return;
+  ctx.save();
+  ctx.strokeStyle = "rgba(77,166,255,0.9)";
+  ctx.fillStyle = "rgba(77,166,255,0.25)";
+  ctx.lineWidth = 2/s;
+  for(var i=0; i<r.windows.length; i++){
+    var w = r.windows[i];
+    var ww = (w.width||120)*s/100;
+    var off = w.offset*s/100;
+    if(w.wall==="bottom"){
+      var wx = (r.x+r.w/2)*s - ww/2 + off;
+      var wy = (r.y+r.h)*s - 6;
+      ctx.fillRect(wx, wy, ww, 12);
+      ctx.strokeRect(wx, wy, ww, 12);
+      ctx.beginPath(); ctx.moveTo(wx, wy+12); ctx.lineTo(wx, wy+20); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(wx+ww, wy+12); ctx.lineTo(wx+ww, wy+20); ctx.stroke();
+    } else if(w.wall==="top"){
+      var wx = (r.x+r.w/2)*s - ww/2 + off;
+      var wy = r.y*s - 6;
+      ctx.fillRect(wx, wy, ww, 12);
+      ctx.strokeRect(wx, wy, ww, 12);
+      ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx, wy-8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(wx+ww, wy); ctx.lineTo(wx+ww, wy-8); ctx.stroke();
+    } else if(w.wall==="left"){
+      var wx = r.x*s - 6;
+      var wy = (r.y+r.h/2)*s - ww/2 + off;
+      ctx.fillRect(wx, wy, 12, ww);
+      ctx.strokeRect(wx, wy, 12, ww);
+      ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx-8, wy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(wx, wy+ww); ctx.lineTo(wx-8, wy+ww); ctx.stroke();
+    } else if(w.wall==="right"){
+      var wx = (r.x+r.w)*s - 6;
+      var wy = (r.y+r.h/2)*s - ww/2 + off;
+      ctx.fillRect(wx, wy, 12, ww);
+      ctx.strokeRect(wx, wy, 12, ww);
+      ctx.beginPath(); ctx.moveTo(wx+12, wy); ctx.lineTo(wx+20, wy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(wx+12, wy+ww); ctx.lineTo(wx+20, wy+ww); ctx.stroke();
+    }
   }
   ctx.restore();
 }
