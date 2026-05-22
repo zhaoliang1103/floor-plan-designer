@@ -1,4 +1,4 @@
-/* ===== 户型图设计器 - 主逻辑 ===== */
+﻿/* ===== 户型图设计器 - 主逻辑 ===== */
 var ROOM_TYPES = [
   {id:"living",   name:"客厅",   color:"#5cb85c", minArea:16, ratio:0.30},
   {id:"masterBed",name:"主卧",   color:"#7b68ee", minArea:12, ratio:0.18},
@@ -564,10 +564,24 @@ function renderRoomList(){
     var isSelected = (r.id === state.selectedRoomId);
     var furnCount = (r.furniture && r.furniture.length > 0) ? ' ['+r.furniture.length+'件家具]' : '';
     var dl=r.door?r.door.wall+"墙":"无门";
-    html+='<div class="room-list-item'+(isSelected?' selected':'')+'" onclick="selectRoomForFurniture(\''+r.id+'\')"><div class="room-info"><div class="color-dot" style="background:'+r.color+'"></div><span class="room-name">'+r.name+'</span><span class="room-size">'+(r.w/100).toFixed(1)+"×"+(r.h/100).toFixed(1)+"m ["+dl+"]"+'<span style="color:#00d4aa;font-size:10px">'+furnCount+'</span></span></div>'
-      +'<div class="room-actions"><button onclick="event.stopPropagation();cycleDoor('+i+')">🚪</button><button onclick="event.stopPropagation();deleteRoom('+i+')">✕</button></div></div>';
+    html+='<div class="room-list-item'+(isSelected?' selected':'')+'" onclick="selectRoomForFurniture(\''+r.id+'\')"><div class="room-info"><div class="color-dot" style="background:'+r.color+'"></div><span class="room-name">'+r.name+'</span></div></div>';
+    html+='<div style="display:flex;align-items:center;gap:4px;padding:2px 9px 4px;margin-bottom:5px;"><span style="font-size:11px;color:#999">宽:</span><input type="number" style="width:52px;padding:2px 4px;border:1px solid #d0d0d0;border-radius:3px;font-size:11px;text-align:center;outline:none;" value="'+(r.w/100).toFixed(1)+'" step="0.1" min="1" max="30" onchange="setRoomSize('+i+',\'w\',this.value)" onclick="event.stopPropagation()" onfocus="event.stopPropagation()"><span style="font-size:11px;color:#999;margin-left:4px">深:</span><input type="number" style="width:52px;padding:2px 4px;border:1px solid #d0d0d0;border-radius:3px;font-size:11px;text-align:center;outline:none;" value="'+(r.h/100).toFixed(1)+'" step="0.1" min="1" max="30" onchange="setRoomSize('+i+',\'h\',this.value)" onclick="event.stopPropagation()" onfocus="event.stopPropagation()"><span style="font-size:11px;color:#999;margin-left:6px">['+dl+']</span>'+'<span style="color:#00d4aa;font-size:10px">'+furnCount+'</span>'+'<div class="room-actions" style="margin-left:auto"><button onclick="event.stopPropagation();cycleDoor('+i+')">🚪</button><button onclick="event.stopPropagation();deleteRoom('+i+')">✕</button></div></div>';
   }
   el.innerHTML=html;
+}
+function setRoomSize(idx, dim, val){
+  var rooms = state.floorData[state.currentFloor].rooms;
+  var r = rooms[idx]; if(!r) return;
+  var v = parseFloat(val); if(isNaN(v) || v < 1) v = 1; if(v > 30) v = 30;
+  var newVal = v * 100;
+  if(dim === 'w'){
+    var maxX = state.width * 100 - r.x;
+    r.w = Math.min(newVal, maxX);
+  } else {
+    var maxY = state.length * 100 - r.y;
+    r.h = Math.min(newVal, maxY);
+  }
+  renderRoomList(); render();
 }
 function deleteRoom(i){
   var r = state.floorData[state.currentFloor].rooms[i];
@@ -642,7 +656,7 @@ function render2D(){
   ctx.fillStyle="#00d4aa"; ctx.font="bold "+(20/s)+"px sans-serif"; ctx.textAlign="center";
   ctx.fillText(state.width+"m",W/2,-10/s);
   ctx.save(); ctx.translate(-14/s,L/2); ctx.rotate(-Math.PI/2); ctx.fillText(state.length+"m",0,0); ctx.restore();
-  drawCompass(s, W, L);
+  drawCompass(s, W, L, true);
   var fl=state.floorData[state.currentFloor];
   if(fl){
     for(var i=0;i<fl.rooms.length;i++){
@@ -793,21 +807,22 @@ function drawMainDoor2D(s){
   ctx.restore();
 }
 
-function drawCompass(s, W, L){
+function drawCompass(s, W, L, pushOut){
   var compassSize = 28/s;
+  var off = pushOut ? 60 : 35;
   ctx.save();
   ctx.font = "bold " + compassSize + "px sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillStyle = "#2a3a5a";
-  ctx.fillText("北", W/2, -35/s);
+  ctx.fillText("北", W/2, -off/s);
   ctx.strokeStyle = "#2a3a5a"; ctx.lineWidth = 1.5/s;
-  ctx.beginPath(); ctx.moveTo(W/2 - 10/s, -25/s); ctx.lineTo(W/2, -45/s); ctx.lineTo(W/2 + 10/s, -25/s); ctx.stroke();
-  ctx.fillText("南", W/2, L + 35/s);
-  ctx.beginPath(); ctx.moveTo(W/2 - 10/s, L + 25/s); ctx.lineTo(W/2, L + 45/s); ctx.lineTo(W/2 + 10/s, L + 25/s); ctx.stroke();
-  ctx.fillText("东", W + 35/s, L/2);
-  ctx.beginPath(); ctx.moveTo(W + 25/s, L/2 - 10/s); ctx.lineTo(W + 45/s, L/2); ctx.lineTo(W + 25/s, L/2 + 10/s); ctx.stroke();
-  ctx.fillText("西", -35/s, L/2);
-  ctx.beginPath(); ctx.moveTo(-25/s, L/2 - 10/s); ctx.lineTo(-45/s, L/2); ctx.lineTo(-25/s, L/2 + 10/s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W/2 - 10/s, -(off-10)/s); ctx.lineTo(W/2, -(off+10)/s); ctx.lineTo(W/2 + 10/s, -(off-10)/s); ctx.stroke();
+  ctx.fillText("南", W/2, L + off/s);
+  ctx.beginPath(); ctx.moveTo(W/2 - 10/s, L + (off-10)/s); ctx.lineTo(W/2, L + (off+10)/s); ctx.lineTo(W/2 + 10/s, L + (off-10)/s); ctx.stroke();
+  ctx.fillText("东", W + off/s, L/2);
+  ctx.beginPath(); ctx.moveTo(W + (off-10)/s, L/2 - 10/s); ctx.lineTo(W + (off+10)/s, L/2); ctx.lineTo(W + (off-10)/s, L/2 + 10/s); ctx.stroke();
+  ctx.fillText("西", -off/s, L/2);
+  ctx.beginPath(); ctx.moveTo(-(off-10)/s, L/2 - 10/s); ctx.lineTo(-(off+10)/s, L/2); ctx.lineTo(-(off-10)/s, L/2 + 10/s); ctx.stroke();
   ctx.restore();
 }
 
