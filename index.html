@@ -386,7 +386,10 @@ function showApp(){
   document.getElementById("loginPage").classList.add("hidden");
   document.getElementById("appHeader").style.display = "flex";
   document.getElementById("appMain").style.display = "flex";
-  document.getElementById("loading-mask").style.display = "flex";
+  document.getElementById("loading-mask").style.display = "none";
+  // 强制隐藏所有可能遮挡的层
+  var overlays = document.querySelectorAll('.modal-overlay, .modal, #loading-mask');
+  for(var i=0;i<overlays.length;i++){ overlays[i].style.display='none'; }
 
   var user = JSON.parse(localStorage.getItem("floorplan_user") || "{}");
   var maskedPhone = (user.phone || "").replace(/(\d{3})\d{4}(\d{4})/, "$1****$2");
@@ -416,7 +419,10 @@ function loadApp(){
   a.src = "app.js";
   a.onload = function(){
     document.getElementById("loading-mask").style.display = "none";
-    if(typeof init === "function") init();
+    // 延迟初始化，等 DOM 布局完成
+    setTimeout(function(){
+      if(typeof init === "function") init();
+    }, 100);
   };
   a.onerror = function(){
     document.getElementById("loading-text").textContent = "应用加载失败，请检查网络后刷新";
