@@ -137,29 +137,27 @@ var T = { scene:null, camera:null, renderer:null, animId:null, orbit:null };
 /* ===== 初始化 ===== */
 function init(){
   console.log("init called, THREE=", typeof THREE);
-  // 等浏览器完成布局后再取尺寸
-  requestAnimationFrame(function(){
-    var wrap = document.getElementById("canvasWrapper");
-    var dpr = window.devicePixelRatio || 1;
-    if(wrap.clientWidth === 0){
-      // 还没渲染完，再等一帧
-      requestAnimationFrame(arguments.callee);
-      return;
-    }
+  var wrap = document.getElementById("canvasWrapper");
+  var dpr = window.devicePixelRatio || 1;
+  function setupCanvas(){
+    if(wrap.clientWidth === 0){ requestAnimationFrame(setupCanvas); return; }
     canvas.width = wrap.clientWidth * dpr;
     canvas.height = wrap.clientHeight * dpr;
     canvas.style.width = wrap.clientWidth + "px";
     canvas.style.height = wrap.clientHeight + "px";
-    window.addEventListener("resize", function(){
-      var w2 = document.getElementById("canvasWrapper");
-      var dpr2 = window.devicePixelRatio || 1;
-      canvas.width = w2.clientWidth * dpr2;
-      canvas.height = w2.clientHeight * dpr2;
-      canvas.style.width = w2.clientWidth + "px";
-      canvas.style.height = w2.clientHeight + "px";
-      if(state.view==="3d" && T.renderer) on3dResize();
-      render();
-    });
+    render();
+  }
+  setupCanvas();
+  window.addEventListener("resize", function(){
+    var w2 = document.getElementById("canvasWrapper");
+    var dpr2 = window.devicePixelRatio || 1;
+    canvas.width = w2.clientWidth * dpr2;
+    canvas.height = w2.clientHeight * dpr2;
+    canvas.style.width = w2.clientWidth + "px";
+    canvas.style.height = w2.clientHeight + "px";
+    if(state.view==="3d" && T.renderer) on3dResize();
+    render();
+  });
   canvas.addEventListener("mousedown", on2dDown);
   canvas.addEventListener("mousemove", on2dMove);
   canvas.addEventListener("mouseup", on2dUp);
@@ -1172,4 +1170,4 @@ function copyExport(){ document.getElementById("exportData").select(); document.
 function resetDesign(){ deselectRoom(); state.zoom=1;state.panX=0;state.panY=0; generateLayout(); }
 
 /* ===== 启动 ===== */
-if(typeof THREE !== "undefined"){ init(); } else { window.addEventListener("THREE_LOADED", init); }
+init(); // 无条件初始化，不依赖 Three.js（3D 视图单独处理）
