@@ -137,22 +137,29 @@ var T = { scene:null, camera:null, renderer:null, animId:null, orbit:null };
 /* ===== 初始化 ===== */
 function init(){
   console.log("init called, THREE=", typeof THREE);
-  var wrap = document.getElementById("canvasWrapper");
-  var dpr = window.devicePixelRatio || 1;
-  canvas.width = wrap.clientWidth * dpr;
-  canvas.height = wrap.clientHeight * dpr;
-  canvas.style.width = wrap.clientWidth + "px";
-  canvas.style.height = wrap.clientHeight + "px";
-  window.addEventListener("resize", function(){
-    var w2 = document.getElementById("canvasWrapper");
-    var dpr2 = window.devicePixelRatio || 1;
-    canvas.width = w2.clientWidth * dpr2;
-    canvas.height = w2.clientHeight * dpr2;
-    canvas.style.width = w2.clientWidth + "px";
-    canvas.style.height = w2.clientHeight + "px";
-    if(state.view==="3d" && T.renderer) on3dResize();
-    render();
-  });
+  // 等浏览器完成布局后再取尺寸
+  requestAnimationFrame(function(){
+    var wrap = document.getElementById("canvasWrapper");
+    var dpr = window.devicePixelRatio || 1;
+    if(wrap.clientWidth === 0){
+      // 还没渲染完，再等一帧
+      requestAnimationFrame(arguments.callee);
+      return;
+    }
+    canvas.width = wrap.clientWidth * dpr;
+    canvas.height = wrap.clientHeight * dpr;
+    canvas.style.width = wrap.clientWidth + "px";
+    canvas.style.height = wrap.clientHeight + "px";
+    window.addEventListener("resize", function(){
+      var w2 = document.getElementById("canvasWrapper");
+      var dpr2 = window.devicePixelRatio || 1;
+      canvas.width = w2.clientWidth * dpr2;
+      canvas.height = w2.clientHeight * dpr2;
+      canvas.style.width = w2.clientWidth + "px";
+      canvas.style.height = w2.clientHeight + "px";
+      if(state.view==="3d" && T.renderer) on3dResize();
+      render();
+    });
   canvas.addEventListener("mousedown", on2dDown);
   canvas.addEventListener("mousemove", on2dMove);
   canvas.addEventListener("mouseup", on2dUp);
@@ -571,6 +578,14 @@ function toggleRoom(id){
   var cfg=state.floorRoomConfigs[state.currentFloor], idx=cfg.indexOf(id);
   if(idx>=0)cfg.splice(idx,1); else cfg.push(id);
   renderRoomTags();
+  // 实时更新画布：重新生成当前楼层布局并渲染
+  if(cfg.length>0){
+    state.floorData[state.currentFloor]={rooms:genFloor(state.currentFloor)};
+    renderRoomList(); render();
+  }else{
+    state.floorData[state.currentFloor]={rooms:[]};
+    renderRoomList(); render();
+  }
 }
 function changeFloors(d){
   state.floors=Math.max(1,Math.min(5,state.floors+d));
