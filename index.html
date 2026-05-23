@@ -57,7 +57,7 @@ body{font-family:'Microsoft YaHei','Segoe UI',sans-serif;background:#f5f7fa;colo
 .view-tabs{display:flex;padding:8px 18px 0;gap:5px}
 .view-tab{padding:7px 18px;border-radius:7px 7px 0 0;border:1px solid #d0d0d0;border-bottom:none;background:#fff;color:#999;font-size:12px;cursor:pointer;transition:all .2s}
 .view-tab.active{background:#f0f2f5;color:#00b894;font-weight:600}
-.canvas-wrapper{flex:1;position:relative;background:#fff;border:1px solid #d0d0d0;margin:0 18px 18px;border-radius:0 7px 7px 7px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+.canvas-wrapper{flex:1;position:relative;min-width:200px;max-width:100%;background:#fff;border:1px solid #d0d0d0;margin:0 18px 18px;border-radius:0 7px 7px 7px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
 #canvas2d{width:100%;height:100%;display:block;cursor:default}
 #view3d{width:100%;height:100%;position:absolute;top:0;left:0;display:none}
 .tooltip{position:absolute;padding:5px 10px;background:#333;border-radius:5px;font-size:11px;pointer-events:none;display:none;z-index:100;white-space:nowrap;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
@@ -422,6 +422,18 @@ function loadApp(){
     // 延迟初始化，等 DOM 布局完成
     setTimeout(function(){
       if(typeof init === "function") init();
+      // 调试：5秒后在 console 报告页面状态
+      setTimeout(function(){
+        var wrap = document.getElementById("canvasWrapper");
+        var mask = document.getElementById("loading-mask");
+        var login = document.getElementById("loginPage");
+        console.log("=== DEBUG ===");
+        console.log("canvasWrapper:", wrap ? wrap.clientWidth + "x" + wrap.clientHeight : "null");
+        console.log("loading-mask display:", mask ? mask.style.display : "null");
+        console.log("loading-mask pointer-events:", mask ? getComputedStyle(mask).pointerEvents : "null");
+        console.log("loginPage display:", login ? login.style.display : "null");
+        console.log("document.body children:", document.body.children.length);
+      }, 5000);
     }, 100);
   };
   a.onerror = function(){
