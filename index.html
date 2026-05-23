@@ -325,6 +325,8 @@ function isValidPhone(v){
   return /^1[3-9]\d{9}$/.test(v);
 }
 
+var WORKER_URL = "https://floorplan-collect.626726db27a7d1936034d7bf2b924d92.workers.dev";
+
 function doLogin(){
   var phone = document.getElementById("phoneInput").value.trim();
   var provinceIdx = parseInt(document.getElementById("provinceSelect").value);
@@ -341,15 +343,37 @@ function doLogin(){
     return;
   }
 
-  var userInfo = {
-    phone: phone,
-    province: province,
-    city: city,
-    town: town,
-    loginTime: new Date().toISOString()
-  };
-  localStorage.setItem("floorplan_user", JSON.stringify(userInfo));
-  showApp();
+  var btn = document.getElementById("submitBtn");
+  btn.disabled = true;
+  btn.textContent = "提交中...";
+
+  var area = province + " " + city + (town ? " " + town : "");
+
+  fetch(WORKER_URL + "/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone: phone, area: area })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(!data.success){ throw new Error(data.error || "提交失败"); }
+    var userInfo = {
+      phone: phone, province: province, city: city, town: town,
+      loginTime: new Date().toISOString(), submitted: true
+    };
+    localStorage.setItem("floorplan_user", JSON.stringify(userInfo));
+    showApp();
+  })
+  .catch(function(err){
+    console.warn("Worker 提交失败，仍可继续使用:", err.message);
+    // Worker 失败不阻断用户使用
+    var userInfo = {
+      phone: phone, province: province, city: city, town: town,
+      loginTime: new Date().toISOString(), submitted: false
+    };
+    localStorage.setItem("floorplan_user", JSON.stringify(userInfo));
+    showApp();
+  });
 }
 
 function logout(){
