@@ -373,7 +373,6 @@ function showApp(){
   document.getElementById("loginPage").classList.add("hidden");
   document.getElementById("appHeader").style.display = "flex";
   document.getElementById("appMain").style.display = "flex";
-  document.getElementById("loading-mask").style.display = "flex";
 
   var user = JSON.parse(localStorage.getItem("floorplan_user") || "{}");
   var maskedPhone = (user.phone || "").replace(/(\d{3})\d{4}(\d{4})/, "$1****$2");
@@ -392,6 +391,19 @@ function showApp(){
     actions.insertBefore(logoutBtn, actions.firstChild);
   }
 
+  // app.js 独立加载（不依赖 Three.js）
+  var a = document.createElement("script");
+  a.src = "app.js";
+  a.onload = function(){
+    document.getElementById("loading-mask").style.display = "none";
+    if(typeof init === "function") init();
+  };
+  a.onerror = function(){
+    document.getElementById("loading-text").textContent = "应用脚本加载失败";
+  };
+  document.head.appendChild(a);
+
+  // Three.js 异步预加载（仅用于3D视图）
   loadThreeJS();
 }
 
@@ -412,17 +424,7 @@ function loadThreeJS(){
     s.src = urls[idx];
     s.onload = function(){
       console.log("Three.js 加载成功:", urls[idx]);
-      document.getElementById("loading-text").textContent = "正在启动...";
-      var a = document.createElement("script");
-      a.src = "app.js";
-      a.onload = function(){
-        document.getElementById("loading-mask").style.display = "none";
-        if(typeof init === "function") init();
-      };
-      a.onerror = function(){
-        document.getElementById("loading-text").textContent = "应用脚本加载失败";
-      };
-      document.head.appendChild(a);
+      // Three.js 加载完成，3D视图可用
     };
     s.onerror = function(){
       idx++;
