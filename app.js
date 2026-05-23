@@ -140,11 +140,18 @@ var T = { scene:null, camera:null, renderer:null, animId:null, orbit:null };
 function init(){
   console.log("init called, THREE=", typeof THREE);
   var wrap = document.getElementById("canvasWrapper");
+  // 强制确保 canvasWrapper 有实际尺寸
+  if(!wrap || wrap.clientWidth === 0 || wrap.clientHeight === 0){
+    var cw = document.getElementById("canvasWrapper");
+    if(cw){ cw.style.width = "800px"; cw.style.height = "600px"; }
+  }
+  wrap = document.getElementById("canvasWrapper");
   var dpr = window.devicePixelRatio || 1;
-  canvas.width = wrap.clientWidth * dpr;
-  canvas.height = wrap.clientHeight * dpr;
-  canvas.style.width = wrap.clientWidth + "px";
-  canvas.style.height = wrap.clientHeight + "px";
+  canvas.width = Math.max(wrap.clientWidth, 800) * dpr;
+  canvas.height = Math.max(wrap.clientHeight, 600) * dpr;
+  canvas.style.width = Math.max(wrap.clientWidth, 800) + "px";
+  canvas.style.height = Math.max(wrap.clientHeight, 600) + "px";
+  console.log("canvas size:", canvas.width, "x", canvas.height);
   window.addEventListener("resize", function(){
     var w2 = document.getElementById("canvasWrapper");
     var dpr2 = window.devicePixelRatio || 1;
