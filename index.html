@@ -57,7 +57,7 @@ body{font-family:'Microsoft YaHei','Segoe UI',sans-serif;background:#f5f7fa;colo
 .view-tabs{display:flex;padding:8px 18px 0;gap:5px}
 .view-tab{padding:7px 18px;border-radius:7px 7px 0 0;border:1px solid #d0d0d0;border-bottom:none;background:#fff;color:#999;font-size:12px;cursor:pointer;transition:all .2s}
 .view-tab.active{background:#f0f2f5;color:#00b894;font-weight:600}
-.canvas-wrapper{flex:1;position:relative;min-width:200px;max-width:100%;background:#fff;border:1px solid #d0d0d0;margin:0 18px 18px;border-radius:0 7px 7px 7px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+.canvas-wrapper{flex:1;position:relative;background:#fff;border:1px solid #d0d0d0;margin:0 18px 18px;border-radius:0 7px 7px 7px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
 #canvas2d{width:100%;height:100%;display:block;cursor:default}
 #view3d{width:100%;height:100%;position:absolute;top:0;left:0;display:none}
 .tooltip{position:absolute;padding:5px 10px;background:#333;border-radius:5px;font-size:11px;pointer-events:none;display:none;z-index:100;white-space:nowrap;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
@@ -175,6 +175,7 @@ body{font-family:'Microsoft YaHei','Segoe UI',sans-serif;background:#f5f7fa;colo
   <h1><span>◆</span> 户型图设计器</h1>
   <div class="header-actions">
     <span id="userBadge" style="font-size:11px;color:#999;padding:4px 10px;background:#f9f9f9;border-radius:12px;border:1px solid #e0e0e0"></span>
+    <button class="btn" onclick="openSurveyModal()" style="border-color:#00b894;color:#00b894">📋 完善信息</button>
     <button class="btn" onclick="resetDesign()">重置</button>
     <button class="btn" onclick="exportImage()">导出图片</button>
     <button class="btn" onclick="exportJSON()">导出数据</button>
@@ -255,6 +256,17 @@ body{font-family:'Microsoft YaHei','Segoe UI',sans-serif;background:#f5f7fa;colo
  </div>
 </div>
 
+<!-- 问卷弹窗 -->
+<div class="modal-overlay" id="surveyModal">
+  <div class="modal" style="max-width:480px;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h2 style="margin:0;font-size:16px">📋 完善信息</h2>
+      <button onclick="closeSurveyModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#999;line-height:1">×</button>
+    </div>
+    <iframe id="surveyIframe" src="https://wj.qq.com/s2/26774133/4072/" style="width:100%;height:420px;border:none;border-radius:8px;display:block"></iframe>
+  </div>
+</div>
+
 <div class="tooltip" id="tooltip"></div>
 
 <script>
@@ -325,8 +337,6 @@ function isValidPhone(v){
   return /^1[3-9]\d{9}$/.test(v);
 }
 
-// TODO: 后端就绪后替换为实际地址
-var API_URL = "";
 function doLogin(){
   var phone = document.getElementById("phoneInput").value.trim();
   var provinceIdx = parseInt(document.getElementById("provinceSelect").value);
@@ -343,38 +353,15 @@ function doLogin(){
     return;
   }
 
-  var btn = document.getElementById("submitBtn");
-  btn.disabled = true;
-  btn.textContent = "进入中...";
-
-  var area = province + " " + city + (town ? " " + town : "");
   var userInfo = {
-    phone: phone, province: province, city: city, town: town,
-    loginTime: new Date().toISOString(), submitted: false
+    phone: phone,
+    province: province,
+    city: city,
+    town: town,
+    loginTime: new Date().toISOString()
   };
-
-  if(API_URL){
-    fetch(API_URL + "/submit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: phone, area: area }),
-      signal: AbortSignal.timeout(5000)
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if(data && data.success) userInfo.submitted = true;
-      localStorage.setItem("floorplan_user", JSON.stringify(userInfo));
-      showApp();
-    })
-    .catch(function(err){
-      console.warn("后端提交失败:", err.message);
-      localStorage.setItem("floorplan_user", JSON.stringify(userInfo));
-      showApp();
-    });
-  } else {
-    localStorage.setItem("floorplan_user", JSON.stringify(userInfo));
-    showApp();
-  }
+  localStorage.setItem("floorplan_user", JSON.stringify(userInfo));
+  showApp();
 }
 
 function logout(){
@@ -386,10 +373,7 @@ function showApp(){
   document.getElementById("loginPage").classList.add("hidden");
   document.getElementById("appHeader").style.display = "flex";
   document.getElementById("appMain").style.display = "flex";
-  document.getElementById("loading-mask").style.display = "none";
-  // 强制隐藏所有可能遮挡的层
-  var overlays = document.querySelectorAll('.modal-overlay, .modal, #loading-mask');
-  for(var i=0;i<overlays.length;i++){ overlays[i].style.display='none'; }
+  document.getElementById("loading-mask").style.display = "flex";
 
   var user = JSON.parse(localStorage.getItem("floorplan_user") || "{}");
   var maskedPhone = (user.phone || "").replace(/(\d{3})\d{4}(\d{4})/, "$1****$2");
@@ -408,59 +392,42 @@ function showApp(){
     actions.insertBefore(logoutBtn, actions.firstChild);
   }
 
-  loadApp();
-  setTimeout(loadThreeJSAsync, 2000);
+  loadThreeJS();
 }
 
-/* ===== 应用加载（不依赖 Three.js） ===== */
-function loadApp(){
-  document.getElementById("loading-text").textContent = "正在启动...";
-  var a = document.createElement("script");
-  a.src = "app.js";
-  a.onload = function(){
-    document.getElementById("loading-mask").style.display = "none";
-    // 延迟初始化，等 DOM 布局完成
-    setTimeout(function(){
-      if(typeof init === "function") init();
-      // 调试：5秒后在 console 报告页面状态
-      setTimeout(function(){
-        var wrap = document.getElementById("canvasWrapper");
-        var mask = document.getElementById("loading-mask");
-        var login = document.getElementById("loginPage");
-        console.log("=== DEBUG ===");
-        console.log("canvasWrapper:", wrap ? wrap.clientWidth + "x" + wrap.clientHeight : "null");
-        console.log("loading-mask display:", mask ? mask.style.display : "null");
-        console.log("loading-mask pointer-events:", mask ? getComputedStyle(mask).pointerEvents : "null");
-        console.log("loginPage display:", login ? login.style.display : "null");
-        console.log("document.body children:", document.body.children.length);
-      }, 5000);
-    }, 100);
-  };
-  a.onerror = function(){
-    document.getElementById("loading-text").textContent = "应用加载失败，请检查网络后刷新";
-  };
-  document.head.appendChild(a);
-}
-
-/* ===== Three.js 异步加载（仅3D视图需要） ===== */
-function loadThreeJSAsync(){
-  if(typeof THREE !== "undefined") return;
+/* ===== Three.js 加载 ===== */
+function loadThreeJS(){
   var urls = [
     "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js",
     "https://unpkg.com/three@0.128.0/build/three.min.js",
-    "https://unpkg.zhimg.com/three@0.128.0/build/three.min.js",
-    "https://cdn.bootcdn.net/ajax/libs/three.js/r128/three.min.js"
+    "https://unpkg.zhimg.com/three@0.128.0/build/three.min.js"
   ];
   var idx = 0;
   function loadNext(){
-    if(idx >= urls.length){ console.warn("Three.js 全部CDN加载失败，3D视图不可用"); return; }
+    if(idx >= urls.length){
+      document.getElementById("loading-text").textContent = "三维引擎加载失败，请检查网络后刷新";
+      return;
+    }
     var s = document.createElement("script");
     s.src = urls[idx];
     s.onload = function(){
       console.log("Three.js 加载成功:", urls[idx]);
-      window.dispatchEvent(new Event("THREE_LOADED"));
+      document.getElementById("loading-text").textContent = "正在启动...";
+      var a = document.createElement("script");
+      a.src = "app.js";
+      a.onload = function(){
+        document.getElementById("loading-mask").style.display = "none";
+        if(typeof init === "function") init();
+      };
+      a.onerror = function(){
+        document.getElementById("loading-text").textContent = "应用脚本加载失败";
+      };
+      document.head.appendChild(a);
     };
-    s.onerror = function(){ idx++; loadNext(); };
+    s.onerror = function(){
+      idx++;
+      loadNext();
+    };
     document.head.appendChild(s);
   }
   loadNext();
@@ -508,6 +475,23 @@ function exportJSON(){
 
 function closeModal(){ document.getElementById("exportModal").classList.remove("show"); }
 function copyExport(){ document.getElementById("exportData").select(); document.execCommand("copy"); closeModal(); }
+function openSurveyModal(){
+  var user = JSON.parse(localStorage.getItem("floorplan_user") || "{}");
+  var phone = user.phone || "";
+  var location = "";
+  if(user.province && user.city){
+    location = user.province + " " + user.city;
+    if(user.town) location += " " + user.town;
+  }
+  var surveyUrl = "https://wj.qq.com/s2/26774133/4072/";
+  if(phone){
+    surveyUrl += "?s1=" + encodeURIComponent(phone);
+    if(location) surveyUrl += "&s2=" + encodeURIComponent(location);
+  }
+  document.getElementById("surveyIframe").src = surveyUrl;
+  document.getElementById("surveyModal").classList.add("show");
+}
+function closeSurveyModal(){ document.getElementById("surveyModal").classList.remove("show"); }
 function resetDesign(){ if(typeof deselectRoom === "function") deselectRoom(); if(typeof generateLayout === "function") generateLayout(); }
 
 /* ===== 启动检查 ===== */
