@@ -1170,4 +1170,5 @@ function copyExport(){ document.getElementById("exportData").select(); document.
 function resetDesign(){ deselectRoom(); state.zoom=1;state.panX=0;state.panY=0; generateLayout(); }
 
 /* ===== 启动 ===== */
-init(); // 无条件初始化，不依赖 Three.js（3D 视图单独处理）
+// init() 由 index.html 的 onload 回调调用，不在 app.js 底部自动调用
+// 因为此时 showApp() 可能还没执行，canvasWrapper 不可见
