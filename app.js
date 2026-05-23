@@ -104,7 +104,9 @@ var FURNITURE_CATALOG = {
 };
 
 var canvas = document.getElementById("canvas2d");
-var ctx = canvas.getContext("2d");
+var ctx = canvas ? canvas.getContext("2d") : null;
+if(!canvas || !ctx){ document.body.innerHTML = '<div style="padding:40px;font-size:18px;color:red">画布初始化失败: canvas=' + !!canvas + ' ctx=' + !!ctx + '</div>'; }
+window.onerror = function(m,s,l){ document.title = 'ERR:'+m; var d=document.getElementById('debugInfo'); if(d) d.textContent='L'+l+': '+m; else { var e=document.createElement('div'); e.id='debugInfo'; e.style.cssText='position:fixed;bottom:0;left:0;right:0;background:red;color:#fff;padding:8px;font-size:12px;z-index:99999'; e.textContent='L'+l+': '+m; document.body.appendChild(e); } };
 var EDGE_TH = 22;
 
 function makeDefaultConfig(fi){
