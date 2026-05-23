@@ -396,7 +396,9 @@ function showApp(){
   a.src = "app.js";
   a.onload = function(){
     document.getElementById("loading-mask").style.display = "none";
-    if(typeof init === "function") init();
+    requestAnimationFrame(function(){
+      if(typeof init === "function") init();
+    });
   };
   a.onerror = function(){
     document.getElementById("loading-text").textContent = "应用脚本加载失败";
