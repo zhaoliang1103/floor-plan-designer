@@ -405,42 +405,44 @@ function showApp(){
     actions.insertBefore(logoutBtn, actions.firstChild);
   }
 
-  loadThreeJS();
+  loadApp();
+  loadThreeJSAsync();
 }
 
-/* ===== Three.js 加载 ===== */
-function loadThreeJS(){
+/* ===== 应用加载（不依赖 Three.js） ===== */
+function loadApp(){
+  document.getElementById("loading-text").textContent = "正在启动...";
+  var a = document.createElement("script");
+  a.src = "app.js";
+  a.onload = function(){
+    document.getElementById("loading-mask").style.display = "none";
+    if(typeof init === "function") init();
+  };
+  a.onerror = function(){
+    document.getElementById("loading-text").textContent = "应用加载失败，请检查网络后刷新";
+  };
+  document.head.appendChild(a);
+}
+
+/* ===== Three.js 异步加载（仅3D视图需要） ===== */
+function loadThreeJSAsync(){
+  if(typeof THREE !== "undefined") return;
   var urls = [
     "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js",
     "https://unpkg.com/three@0.128.0/build/three.min.js",
-    "https://unpkg.zhimg.com/three@0.128.0/build/three.min.js"
+    "https://unpkg.zhimg.com/three@0.128.0/build/three.min.js",
+    "https://cdn.bootcdn.net/ajax/libs/three.js/r128/three.min.js"
   ];
   var idx = 0;
   function loadNext(){
-    if(idx >= urls.length){
-      document.getElementById("loading-text").textContent = "三维引擎加载失败，请检查网络后刷新";
-      return;
-    }
+    if(idx >= urls.length){ console.warn("Three.js 全部CDN加载失败，3D视图不可用"); return; }
     var s = document.createElement("script");
     s.src = urls[idx];
     s.onload = function(){
       console.log("Three.js 加载成功:", urls[idx]);
-      document.getElementById("loading-text").textContent = "正在启动...";
-      var a = document.createElement("script");
-      a.src = "app.js";
-      a.onload = function(){
-        document.getElementById("loading-mask").style.display = "none";
-        if(typeof init === "function") init();
-      };
-      a.onerror = function(){
-        document.getElementById("loading-text").textContent = "应用脚本加载失败";
-      };
-      document.head.appendChild(a);
+      window.dispatchEvent(new Event("THREE_LOADED"));
     };
-    s.onerror = function(){
-      idx++;
-      loadNext();
-    };
+    s.onerror = function(){ idx++; loadNext(); };
     document.head.appendChild(s);
   }
   loadNext();
