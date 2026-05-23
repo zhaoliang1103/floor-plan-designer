@@ -855,6 +855,8 @@ function render2D(){
   var dpr=window.devicePixelRatio||1, cw=canvas.width/dpr, ch=canvas.height/dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,cw,ch);
+  // ★ 测试：画一个红色矩形，确认 canvas 是否工作
+  ctx.save(); ctx.fillStyle="red"; ctx.fillRect(20,20,200,100); ctx.fillStyle="white"; ctx.font="bold 20px sans-serif"; ctx.fillText("CANVAS OK v"+Date.now(),30,70); ctx.restore();
   var W=state.width*100, L=state.length*100, s=state.zoom*getBaseScale();
   var ox=(cw-W*s)/2+state.panX, oy=(ch-L*s)/2+state.panY;
   ctx.save(); ctx.translate(ox,oy); ctx.scale(s,s);
